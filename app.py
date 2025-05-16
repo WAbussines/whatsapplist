@@ -1,15 +1,18 @@
 # Importowanie potrzebnych modułów
-from flask import Flask, request, jsonify, redirect, url_for # Dodano redirect i url_for
+from flask import Flask, request, jsonify, redirect # Usunięto url_for, dodano redirect
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_cors import CORS # Importowanie CORS do obsługi żądań z frontendu
 import re # Importowanie modułu do wyrażeń regularnych (do walidacji linku)
+from functools import wraps # Do tworzenia dekoratorów
 
 # Inicjalizacja aplikacji Flask
 app = Flask(__name__)
 
 # Konfiguracja bazy danych SQLite
 # Używamy bazy danych w pliku 'site.db' w folderze projektu
+# Render może wymagać innej konfiguracji URI dla baz danych,
+# ale dla SQLite w prostych przypadkach to powinno działać.
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # Wyłączenie śledzenia modyfikacji (opcjonalne, ale zalecane)
 
@@ -21,6 +24,9 @@ db = SQLAlchemy(app)
 # na komunikację z tym backendem. W środowisku produkcyjnym
 # warto ograniczyć CORS tylko do zaufanych domen.
 CORS(app)
+
+# ** Ustawienie hasła administracyjnego (BARDZO NIEBEZPIECZNE W PRODUKCJI!) **
+ADMIN_PASSWORD = "bardzotajnehaslo123" # ZMIEŃ TO NA COŚ INNEGO!
 
 # Definicja modelu bazy danych dla kanału
 class Channel(db.Model):
@@ -46,17 +52,45 @@ with app.app_context():
 # Wzorzec wyrażenia regularnego dla walidacji linku WhatsApp Channel
 WHATSAPP_CHANNEL_LINK_PATTERN = re.compile(r'^https:\/\/whatsapp\.com\/channel\/.*')
 
-# ** ZMODYFIKOWANA ŚCIEŻKA GŁÓWNA - PRZEKIEROWANIE **
+# ** Dekorator do ochrony endpointów hasłem **
+def require_admin_password(view):
+    @wraps(view)
+    def wrapped_view(**kwargs):
+        # Pobranie hasła z nagłówka Authorization lub z ciała żądania JSON
+        # W prawdziwej aplikacji użyłbyś tokenów, sesji itp.
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            provided_password = auth_header.split(' ')[1]
+        else:
+            # Alternatywnie, sprawdź w ciele żądania POST (mniej bezpieczne)
+            try:
+                data = request.get_json()
+                provided_password = data.get('password')
+            except:
+                provided_password = None # Brak JSON lub hasła w JSON
+
+        if provided_password == ADMIN_PASSWORD:
+            return view(**kwargs)
+        else:
+            # Zwrócenie błędu 401 Unauthorized
+            return jsonify({'error': 'Wymagane hasło administracyjne'}), 401
+    return wrapped_view
+
+
+# ** ŚCIEŻKA GŁÓWNA - PRZEKIEROWANIE DO FRONTENDU **
 @app.route('/', methods=['GET'])
 def home():
     # ** WAŻNE: Zmień ten URL na rzeczywisty adres URL swojego frontendu (np. na GitHub Pages) **
+    # Backend nie serwuje pliku index.html, tylko przekierowuje przeglądarkę użytkownika
+    # do miejsca, gdzie ten plik jest hostowany (np. na GitHub Pages).
     FRONTEND_URL = "https://twojanazwauzytkownika.github.io/nazwa-twojego-repozytorium/" # ZASTĄP TEN PLACEHOLDER!
 
     # Zwrócenie odpowiedzi przekierowania (status 302 Found)
+    # Przeglądarka użytkownika otrzyma to przekierowanie i automatycznie załaduje FRONTEND_URL
     return redirect(FRONTEND_URL, code=302)
 
 
-# Endpoint API do dodawania nowego kanału
+# Endpoint API do dodawania nowego kanału (dostępny publicznie)
 @app.route('/api/channels', methods=['POST'])
 def add_channel():
     # Pobranie danych z żądania POST w formacie JSON
@@ -84,7 +118,7 @@ def add_channel():
     # Zwrócenie odpowiedzi sukcesu
     return jsonify({'message': 'Kanał dodany pomyślnie', 'channel': {'id': new_channel.id, 'name': new_channel.name, 'link': new_channel.link, 'last_promoted': new_channel.last_promoted.isoformat()}}), 201 # Zwrócenie statusu 201 (Created)
 
-# Endpoint API do pobierania listy kanałów
+# Endpoint API do pobierania listy kanałów (dostępny publicznie, sortowany)
 @app.route('/api/channels', methods=['GET'])
 def get_channels():
     # Pobranie wszystkich kanałów z bazy danych i posortowanie ich
@@ -104,7 +138,7 @@ def get_channels():
     # Zwrócenie listy kanałów w formacie JSON
     return jsonify(channels_list), 200 # Zwrócenie statusu 200 (OK)
 
-# Endpoint API do promowania kanału
+# Endpoint API do promowania kanału (dostępny publicznie, wymaga 10 kliknięć na frontendzie)
 # Ten endpoint jest wywoływany PRZEZ FRONTEND po 10 kliknięciach
 @app.route('/api/channels/<int:channel_id>/promote', methods=['POST'])
 def promote_channel(channel_id):
@@ -124,6 +158,63 @@ def promote_channel(channel_id):
 
     # Zwrócenie odpowiedzi sukcesu z zaktualizowanymi danymi kanału
     return jsonify({'message': 'Kanał promowany pomyślnie', 'channel': {'id': channel.id, 'name': channel.name, 'link': channel.link, 'last_promoted': channel.last_promoted.isoformat()}}), 200 # Zwrócenie statusu 200 (OK)
+
+
+# ** ENDPOINTY PANELU ADMINISTRACYJNEGO (WYMAGAJĄ HASŁA) **
+
+# Endpoint API do pobierania WSZYSTKICH danych kanałów dla panelu admina (nieposortowane lub sortowane inaczej)
+# Zwraca wszystkie dane, w tym datę ostatniego promowania
+@app.route('/api/admin/channels', methods=['GET'])
+@require_admin_password # Ochrona hasłem
+def get_admin_channels():
+    # Pobranie wszystkich kanałów
+    # Można sortować inaczej dla panelu admina, np. według ID lub daty dodania
+    channels = Channel.query.order_by(Channel.id).all() # Sortowanie według ID dla stabilności
+
+    channels_list = []
+    for channel in channels:
+        channels_list.append({
+            'id': channel.id,
+            'name': channel.name,
+            'link': channel.link,
+            'lastPromoted': channel.last_promoted.isoformat() # Data promowania
+            # Można dodać inne statystyki, jeśli będą śledzone w przyszłości (np. liczba kliknięć)
+        })
+
+    return jsonify(channels_list), 200
+
+
+# Endpoint API do promowania kanału JEDNYM KLIKNIĘCIEM (dla admina)
+@app.route('/api/admin/channels/<int:channel_id>/promote_one_click', methods=['POST'])
+@require_admin_password # Ochrona hasłem
+def admin_promote_channel(channel_id):
+    channel = Channel.query.get(channel_id)
+
+    if not channel:
+        return jsonify({'error': 'Kanał nie znaleziony'}), 404
+
+    # Aktualizacja daty ostatniego promowania
+    channel.last_promoted = datetime.utcnow()
+
+    db.session.commit()
+
+    return jsonify({'message': 'Kanał promowany pomyślnie (admin)', 'channel': {'id': channel.id, 'name': channel.name, 'link': channel.link, 'last_promoted': channel.last_promoted.isoformat()}}), 200
+
+
+# Endpoint API do usuwania kanału (dla admina)
+@app.route('/api/admin/channels/<int:channel_id>/delete', methods=['DELETE'])
+@require_admin_password # Ochrona hasłem
+def admin_delete_channel(channel_id):
+    channel = Channel.query.get(channel_id)
+
+    if not channel:
+        return jsonify({'error': 'Kanał nie znaleziony'}), 404
+
+    # Usunięcie kanału z bazy danych
+    db.session.delete(channel)
+    db.session.commit()
+
+    return jsonify({'message': 'Kanał usunięty pomyślnie (admin)'}), 200
 
 
 # Uruchomienie aplikacji Flask w trybie debugowania
