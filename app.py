@@ -1,5 +1,5 @@
 # Importowanie potrzebnych modułów
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect, url_for # Dodano redirect i url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_cors import CORS # Importowanie CORS do obsługi żądań z frontendu
@@ -17,7 +17,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # Wyłączenie śledzenia m
 db = SQLAlchemy(app)
 
 # Konfiguracja CORS
-# Pozwoli to frontendowi działającemu na innym adresie (np. localhost)
+# Pozwoli to frontendowi działającemu na innym adresie (np. localhost lub GitHub Pages)
 # na komunikację z tym backendem. W środowisku produkcyjnym
 # warto ograniczyć CORS tylko do zaufanych domen.
 CORS(app)
@@ -46,12 +46,15 @@ with app.app_context():
 # Wzorzec wyrażenia regularnego dla walidacji linku WhatsApp Channel
 WHATSAPP_CHANNEL_LINK_PATTERN = re.compile(r'^https:\/\/whatsapp\.com\/channel\/.*')
 
-# ** NOWA ŚCIEŻKA GŁÓWNA **
-# Endpoint API dla głównego adresu URL
+# ** ZMODYFIKOWANA ŚCIEŻKA GŁÓWNA - PRZEKIEROWANIE **
 @app.route('/', methods=['GET'])
 def home():
-    # Zwrócenie prostej wiadomości, aby potwierdzić, że backend działa
-    return jsonify({'message': 'Backend dla Promotora Kanałów WhatsApp działa!'}), 200
+    # ** WAŻNE: Zmień ten URL na rzeczywisty adres URL swojego frontendu (np. na GitHub Pages) **
+    FRONTEND_URL = "https://twojanazwauzytkownika.github.io/nazwa-twojego-repozytorium/" # ZASTĄP TEN PLACEHOLDER!
+
+    # Zwrócenie odpowiedzi przekierowania (status 302 Found)
+    return redirect(FRONTEND_URL, code=302)
+
 
 # Endpoint API do dodawania nowego kanału
 @app.route('/api/channels', methods=['POST'])
