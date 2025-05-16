@@ -76,7 +76,32 @@
         const CLICKS_REQUIRED_FOR_PROMOTION = 10; // Liczba kliknięć wymagana do promowania
 
         const channelLinkInput = document.getElementById('channelLink');
-        const channelNameInput = document.getElementById('channelName'); // Ponownie inicjalizujemy pole nazwy
+        const channelNameInput = document.getElementById('channelName');
+
+
+        // ** Funkcja do logowania wizyty przez backend **
+        async function logVisit() {
+            try {
+                // Wysyłamy proste żądanie POST do backendu.
+                // Backend sam odczyta adres IP z nagłówków żądania.
+                const response = await fetch(`${BACKEND_URL}/api/log_visit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    // Ciało żądania może być puste lub zawierać dodatkowe dane, jeśli potrzebne
+                    body: JSON.stringify({})
+                });
+
+                if (!response.ok) {
+                    console.error(`Błąd podczas logowania wizyty: ${response.status}`);
+                } else {
+                    console.log('Wizyta zalogowana pomyślnie.');
+                }
+            } catch (error) {
+                console.error("Błąd sieci podczas logowania wizyty:", error);
+            }
+        }
 
 
         // Funkcja do ładowania kanałów z backendu
@@ -273,11 +298,12 @@
             }
         });
 
-        // Usunięto całą logikę automatycznego pobierania nazwy z linku
 
-
-        // Zainicjuj: załaduj kanały po załadowaniu strony
-        window.onload = fetchChannels;
+        // Zainicjuj: załaduj kanały po załadowaniu strony ORAZ zaloguj wizytę
+        window.onload = async function() {
+            await fetchChannels();
+            await logVisit(); // Zaloguj wizytę po załadowaniu strony
+        };
 
     </script>
 </body>
