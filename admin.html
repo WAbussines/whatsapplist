@@ -25,6 +25,30 @@
         tbody tr:hover {
             background-color: #f9f9f9;
         }
+        /* Style dla zakładek */
+        .tab-button {
+            padding: 10px 15px;
+            border: none;
+            background-color: #e2e8f0;
+            cursor: pointer;
+            margin-right: 5px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            border-bottom: 2px solid #3b82f6; /* Kolor niebieski z Tailwind */
+            font-weight: bold;
+        }
+        .tab-content {
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            padding: 15px;
+            background-color: #fff;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-6">
@@ -48,34 +72,86 @@
         </div>
 
         <div id="adminPanel" class="hidden">
-             <h2 class="text-2xl font-semibold text-gray-700 mb-4">Statystyki i Zarządzanie Kanałami</h2>
 
              <div class="mb-4">
-                 <button id="refreshChannels" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">Odśwież Listę</button>
+                <button class="tab-button active" data-tab="channels">Zarządzanie Kanałami</button>
+                <button class="tab-button" data-tab="visits">Logi Ogólnych Wizyt</button>
+                <button class="tab-button" data-tab="action_logs">Logi Akcji</button> </div>
+
+            <div id="channelsTab" class="tab-content">
+                 <h2 class="text-2xl font-semibold text-gray-700 mb-4">Zarządzanie Kanałami</h2>
+                 <div class="mb-4">
+                     <button id="refreshChannels" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">Odśwież Listę Kanałów</button>
+                 </div>
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nazwa Kanału</th>
+                                <th>Link</th>
+                                <th>Ostatnie Promowanie (UTC)</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminChannelsTableBody" class="divide-y divide-gray-200">
+                            <tr><td colspan="5" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+             <div id="visitsTab" class="tab-content hidden">
+                 <h2 class="text-2xl font-semibold text-gray-700 mb-4">Logi Ogólnych Wizyt</h2>
+                 <div class="mb-4">
+                     <button id="refreshVisits" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">Odśwież Logi Wizyt</button>
+                 </div>
+                 <div class="bg-white rounded-lg shadow overflow-hidden">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead>
+                             <tr>
+                                 <th>ID Wizyty</th>
+                                 <th>Adres IP</th>
+                                 <th>Czas Wizyty (UTC)</th>
+                             </tr>
+                         </thead>
+                         <tbody id="adminVisitsTableBody" class="divide-y divide-gray-200">
+                             <tr><td colspan="3" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
              </div>
 
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nazwa Kanału</th>
-                            <th>Link</th>
-                            <th>Ostatnie Promowanie (UTC)</th>
-                            <th>Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminChannelsTableBody" class="divide-y divide-gray-200">
-                        <tr><td colspan="5" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>
-                    </tbody>
-                </table>
-            </div>
+             <div id="action_logsTab" class="tab-content hidden">
+                 <h2 class="text-2xl font-semibold text-gray-700 mb-4">Logi Akcji (Dodanie/Promowanie)</h2>
+                 <div class="mb-4">
+                     <button id="refreshActionLogs" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">Odśwież Logi Akcji</button>
+                 </div>
+                 <div class="bg-white rounded-lg shadow overflow-hidden">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead>
+                             <tr>
+                                 <th>ID Logu</th>
+                                 <th>Adres IP</th>
+                                 <th>Czas Akcji (UTC)</th>
+                                 <th>Typ Akcji</th>
+                                 <th>ID Kanału</th>
+                                 <th>Nazwa Kanału</th>
+                             </tr>
+                         </thead>
+                         <tbody id="adminActionLogsTableBody" class="divide-y divide-gray-200">
+                             <tr><td colspan="6" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+
         </div>
     </div>
 
     <script>
-        // Adres URL Twojego backendu na Renderze
-        const BACKEND_URL = 'https://whatsapplista.onrender.com';
+        // Adres URL Twojego backendu (Render)
+        const BACKEND_URL = 'https://whatsapplista.onrender.com'; // ZMIEŃ TO!
 
         // Zmienna do przechowywania hasła po zalogowaniu (tymczasowo i niebezpiecznie)
         let adminPassword = null;
@@ -85,22 +161,34 @@
         const loginForm = document.getElementById('loginForm');
         const adminPasswordInput = document.getElementById('adminPassword');
         const loginError = document.getElementById('loginError');
+
+        // Elementy dla zakładek
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // Elementy dla zakładki Kanałów
         const adminChannelsTableBody = document.getElementById('adminChannelsTableBody');
         const refreshChannelsButton = document.getElementById('refreshChannels');
+
+        // Elementy dla zakładki Wizyt
+        const adminVisitsTableBody = document.getElementById('adminVisitsTableBody');
+        const refreshVisitsButton = document.getElementById('refreshVisits');
+
+        // Elementy dla zakładki Logi Akcji
+        const adminActionLogsTableBody = document.getElementById('adminActionLogsTableBody');
+        const refreshActionLogsButton = document.getElementById('refreshActionLogs');
 
 
         // Funkcja do wysyłania żądań do endpointów admina z hasłem
         async function sendAdminRequest(endpoint, method = 'GET', body = null) {
             if (!adminPassword) {
                 console.error("Brak hasła administracyjnego. Zaloguj się.");
-                // Można przekierować do strony logowania lub wyświetlić komunikat
                 alert("Sesja wygasła lub nie jesteś zalogowany. Proszę zalogować się ponownie.");
-                showLogin(); // Pokaż ponownie sekcję logowania
-                return null; // Zwróć null, aby wskazać błąd
+                showLogin();
+                return null;
             }
 
             const headers = {
-                // Przekazanie hasła w nagłówku Authorization (proste uwierzytelnianie Bearer)
                 'Authorization': `Bearer ${adminPassword}`,
                 'Content-Type': 'application/json',
             };
@@ -114,10 +202,9 @@
                 const response = await fetch(`${BACKEND_URL}${endpoint}`, options);
 
                 if (response.status === 401) {
-                     // Błąd autoryzacji (nieprawidłowe hasło)
-                     adminPassword = null; // Wyczyść zapisane hasło
+                     adminPassword = null;
                      alert("Nieprawidłowe hasło lub sesja wygasła. Proszę zalogować się ponownie.");
-                     showLogin(); // Pokaż ponownie sekcję logowania
+                     showLogin();
                      return null;
                 }
 
@@ -126,18 +213,16 @@
                     throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`);
                 }
 
-                // Zwróć dane JSON, jeśli odpowiedź nie jest DELETE (DELETE zazwyczaj nie zwraca ciała)
                 if (method !== 'DELETE') {
                      return await response.json();
                 } else {
-                     return { message: 'Success' }; // Prosta odpowiedź dla DELETE
+                     return { message: 'Success' };
                 }
-
 
             } catch (error) {
                 console.error(`Błąd podczas żądania (${method} ${endpoint}):`, error);
                 alert(`Wystąpił błąd: ${error.message}`);
-                return null; // Zwróć null, aby wskazać błąd
+                return null;
             }
         }
 
@@ -164,7 +249,6 @@
                      adminChannelsTableBody.appendChild(row);
                  });
 
-                 // Dodaj event listenery do nowych przycisków
                  document.querySelectorAll('.admin-promote-btn').forEach(button => {
                      button.addEventListener('click', handleAdminPromoteClick);
                  });
@@ -172,13 +256,64 @@
                      button.addEventListener('click', handleAdminDeleteClick);
                  });
 
-             } else if (channels) { // Jeśli channels jest puste, ale nie ma błędu
+             } else if (channels) {
                   adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Brak kanałów w bazie.</td></tr>';
              } else {
-                 // Błąd został już obsłużony w sendAdminRequest
                  adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 p-4">Nie udało się załadować danych.</td></tr>';
              }
         }
+
+        // Funkcja do pobierania i wyświetlania ogólnych logów wizyt dla admina
+        async function fetchAdminVisits() {
+            adminVisitsTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>';
+            const visits = await sendAdminRequest('/api/admin/visits', 'GET');
+
+            adminVisitsTableBody.innerHTML = ''; // Wyczyść tabelę
+
+            if (visits && visits.length > 0) {
+                visits.forEach(visit => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${visit.id}</td>
+                        <td>${visit.ip_address}</td>
+                        <td>${new Date(visit.timestamp).toLocaleString()}</td>
+                    `;
+                    adminVisitsTableBody.appendChild(row);
+                });
+            } else if (visits) {
+                 adminVisitsTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 p-4">Brak logów wizyt.</td></tr>';
+            } else {
+                 adminVisitsTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-red-500 p-4">Nie udało się załadować logów wizyt.</td></tr>';
+            }
+        }
+
+         // ** Nowa funkcja do pobierania i wyświetlania logów akcji dla admina **
+        async function fetchAdminActionLogs() {
+            adminActionLogsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>';
+            const actionLogs = await sendAdminRequest('/api/admin/action_logs', 'GET');
+
+            adminActionLogsTableBody.innerHTML = ''; // Wyczyść tabelę
+
+            if (actionLogs && actionLogs.length > 0) {
+                actionLogs.forEach(log => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${log.id}</td>
+                        <td>${log.ip_address}</td>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td>${log.action_type}</td>
+                        <td>${log.channel_id || 'N/A'}</td>
+                        <td>${log.channel_name || 'N/A'}</td>
+                    `;
+                    adminActionLogsTableBody.appendChild(row);
+                });
+            } else if (actionLogs) {
+                 adminActionLogsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 p-4">Brak logów akcji.</td></tr>';
+            } else {
+                 adminActionLogsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-red-500 p-4">Nie udało się załadować logów akcji.</td></tr>';
+            }
+        }
+
 
         // Obsługa kliknięcia przycisku "Promuj (1 klik)" w panelu admina
         async function handleAdminPromoteClick(event) {
@@ -187,9 +322,12 @@
             const result = await sendAdminRequest(`/api/admin/channels/${channelId}/promote_one_click`, 'POST');
             if (result) {
                 alert(`Kanał ID ${channelId} promowany pomyślnie.`);
-                fetchAdminChannels(); // Odśwież listę po promowaniu
+                fetchAdminChannels(); // Odśwież listę kanałów
+                // Opcjonalnie: odśwież logi akcji, jeśli jesteś na tej zakładce
+                // if (!action_logsTabContent.classList.contains('hidden')) {
+                //      fetchAdminActionLogs();
+                // }
             }
-            // Błąd jest obsługiwany w sendAdminRequest
         }
 
         // Obsługa kliknięcia przycisku "Usuń" w panelu admina
@@ -201,11 +339,49 @@
                  const result = await sendAdminRequest(`/api/admin/channels/${channelId}/delete`, 'DELETE');
                  if (result) {
                      alert(`Kanał ID ${channelId} usunięty pomyślnie.`);
-                     fetchAdminChannels(); // Odśwież listę po usunięciu
+                     fetchAdminChannels(); // Odśwież listę kanałów
+                      // Opcjonalnie: odśwież logi akcji
+                     // if (!action_logsTabContent.classList.contains('hidden')) {
+                     //      fetchAdminActionLogs();
+                     // }
                  }
-                 // Błąd jest obsługiwany w sendAdminRequest
              }
         }
+
+        // Logika przełączania zakładek
+        function switchTab(tabId) {
+            tabButtons.forEach(button => {
+                if (button.dataset.tab === tabId) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+
+            tabContents.forEach(content => {
+                if (content.id === `${tabId}Tab`) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+
+            // Załaduj dane odpowiednie dla wybranej zakładki
+            if (tabId === 'channels') {
+                fetchAdminChannels();
+            } else if (tabId === 'visits') {
+                fetchAdminVisits();
+            } else if (tabId === 'action_logs') { // Nowa zakładka
+                 fetchAdminActionLogs();
+            }
+        }
+
+        // Dodaj event listenery do przycisków zakładek
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                switchTab(button.dataset.tab);
+            });
+        });
 
 
         // Obsługa formularza logowania
@@ -213,21 +389,19 @@
             event.preventDefault();
             const password = adminPasswordInput.value;
 
-            // Prosta próba "zalogowania" poprzez próbę pobrania danych admina
-            // W prawdziwej aplikacji byłby tu osobny endpoint logowania zwracający token/sesję
-            adminPassword = password; // Tymczasowo zapisz hasło
-            loginError.classList.add('hidden'); // Ukryj poprzednie błędy
+            adminPassword = password;
+            loginError.classList.add('hidden');
 
+            // Spróbuj pobrać dane kanałów jako test logowania
             const channels = await sendAdminRequest('/api/admin/channels', 'GET');
 
             if (channels) {
-                // Logowanie pomyślne, pokaż panel admina
                 showAdminPanel();
-                fetchAdminChannels(); // Pobierz i wyświetl dane
+                // Po zalogowaniu, domyślnie pokaż zakładkę kanałów i załaduj dane
+                switchTab('channels');
             } else {
-                // Logowanie niepomyślne (sendAdminRequest zwrócił null z powodu błędu 401 lub innego)
-                adminPassword = null; // Wyczyść hasło
-                loginError.classList.remove('hidden'); // Pokaż komunikat o błędzie
+                adminPassword = null;
+                loginError.classList.remove('hidden');
             }
         });
 
@@ -235,8 +409,10 @@
         function showLogin() {
             loginSection.classList.remove('hidden');
             adminPanel.classList.add('hidden');
-            adminPasswordInput.value = ''; // Wyczyść pole hasła
-             adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>'; // Wyczyść tabelę
+            adminPasswordInput.value = '';
+             adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>';
+             adminVisitsTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>';
+             adminActionLogsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>'; // Wyczyść tabelę logów akcji
         }
 
          function showAdminPanel() {
@@ -244,8 +420,10 @@
             adminPanel.classList.remove('hidden');
          }
 
-        // Obsługa przycisku odświeżania listy
+        // Obsługa przycisków odświeżania
         refreshChannelsButton.addEventListener('click', fetchAdminChannels);
+        refreshVisitsButton.addEventListener('click', fetchAdminVisits);
+        refreshActionLogsButton.addEventListener('click', fetchAdminActionLogs); // Nowy przycisk odświeżania logów akcji
 
 
         // Inicjalizacja: pokaż sekcję logowania przy ładowaniu strony
