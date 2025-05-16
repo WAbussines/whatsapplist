@@ -46,6 +46,13 @@ with app.app_context():
 # Wzorzec wyrażenia regularnego dla walidacji linku WhatsApp Channel
 WHATSAPP_CHANNEL_LINK_PATTERN = re.compile(r'^https:\/\/whatsapp\.com\/channel\/.*')
 
+# ** NOWA ŚCIEŻKA GŁÓWNA **
+# Endpoint API dla głównego adresu URL
+@app.route('/', methods=['GET'])
+def home():
+    # Zwrócenie prostej wiadomości, aby potwierdzić, że backend działa
+    return jsonify({'message': 'Backend dla Promotora Kanałów WhatsApp działa!'}), 200
+
 # Endpoint API do dodawania nowego kanału
 @app.route('/api/channels', methods=['POST'])
 def add_channel():
@@ -120,4 +127,6 @@ def promote_channel(channel_id):
 # debug=True powoduje automatyczne przeładowanie serwera po zmianach w kodzie
 # W środowisku produkcyjnym debug=False
 if __name__ == '__main__':
+    # Render uruchamia aplikację za pomocą Gunicorna, więc ten blok
+    # jest głównie do testowania lokalnego.
     app.run(debug=True)
