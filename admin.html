@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administracyjny - Kanały WhatsApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6;
+        }
+        .container {
+            max-width: 900px; /* Szerszy kontener dla tabeli */
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="container mx-auto bg-white p-8 rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Panel Administracyjny</h1>
+
+        <div id="loginSection" class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Logowanie</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="adminPassword" class="block text-sm font-medium text-gray-700">Hasło:</label>
+                    <input type="password" id="adminPassword" name="adminPassword" required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                        class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    Zaloguj
+                </button>
+                 <p id="loginError" class="text-red-500 text-sm mt-2 hidden">Nieprawidłowe hasło.</p>
+            </form>
+        </div>
+
+        <div id="adminPanel" class="hidden">
+             <h2 class="text-2xl font-semibold text-gray-700 mb-4">Statystyki i Zarządzanie Kanałami</h2>
+
+             <div class="mb-4">
+                 <button id="refreshChannels" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">Odśwież Listę</button>
+             </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nazwa Kanału</th>
+                            <th>Link</th>
+                            <th>Ostatnie Promowanie (UTC)</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminChannelsTableBody" class="divide-y divide-gray-200">
+                        <tr><td colspan="5" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Adres URL Twojego backendu na Renderze
+        const BACKEND_URL = 'https://whatsapplista.onrender.com';
+
+        // Zmienna do przechowywania hasła po zalogowaniu (tymczasowo i niebezpiecznie)
+        let adminPassword = null;
+
+        const loginSection = document.getElementById('loginSection');
+        const adminPanel = document.getElementById('adminPanel');
+        const loginForm = document.getElementById('loginForm');
+        const adminPasswordInput = document.getElementById('adminPassword');
+        const loginError = document.getElementById('loginError');
+        const adminChannelsTableBody = document.getElementById('adminChannelsTableBody');
+        const refreshChannelsButton = document.getElementById('refreshChannels');
+
+
+        // Funkcja do wysyłania żądań do endpointów admina z hasłem
+        async function sendAdminRequest(endpoint, method = 'GET', body = null) {
+            if (!adminPassword) {
+                console.error("Brak hasła administracyjnego. Zaloguj się.");
+                // Można przekierować do strony logowania lub wyświetlić komunikat
+                alert("Sesja wygasła lub nie jesteś zalogowany. Proszę zalogować się ponownie.");
+                showLogin(); // Pokaż ponownie sekcję logowania
+                return null; // Zwróć null, aby wskazać błąd
+            }
+
+            const headers = {
+                // Przekazanie hasła w nagłówku Authorization (proste uwierzytelnianie Bearer)
+                'Authorization': `Bearer ${adminPassword}`,
+                'Content-Type': 'application/json',
+            };
+
+            try {
+                const options = { method, headers };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(`${BACKEND_URL}${endpoint}`, options);
+
+                if (response.status === 401) {
+                     // Błąd autoryzacji (nieprawidłowe hasło)
+                     adminPassword = null; // Wyczyść zapisane hasło
+                     alert("Nieprawidłowe hasło lub sesja wygasła. Proszę zalogować się ponownie.");
+                     showLogin(); // Pokaż ponownie sekcję logowania
+                     return null;
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`);
+                }
+
+                // Zwróć dane JSON, jeśli odpowiedź nie jest DELETE (DELETE zazwyczaj nie zwraca ciała)
+                if (method !== 'DELETE') {
+                     return await response.json();
+                } else {
+                     return { message: 'Success' }; // Prosta odpowiedź dla DELETE
+                }
+
+
+            } catch (error) {
+                console.error(`Błąd podczas żądania (${method} ${endpoint}):`, error);
+                alert(`Wystąpił błąd: ${error.message}`);
+                return null; // Zwróć null, aby wskazać błąd
+            }
+        }
+
+        // Funkcja do pobierania i wyświetlania danych kanałów dla admina
+        async function fetchAdminChannels() {
+             adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Ładowanie danych...</td></tr>';
+             const channels = await sendAdminRequest('/api/admin/channels', 'GET');
+
+             adminChannelsTableBody.innerHTML = ''; // Wyczyść tabelę
+
+             if (channels && channels.length > 0) {
+                 channels.forEach(channel => {
+                     const row = document.createElement('tr');
+                     row.innerHTML = `
+                         <td>${channel.id}</td>
+                         <td>${channel.name}</td>
+                         <td><a href="${channel.link}" target="_blank" class="text-blue-600 hover:underline">${channel.link}</a></td>
+                         <td>${new Date(channel.lastPromoted).toLocaleString()}</td>
+                         <td class="space-x-2">
+                             <button data-id="${channel.id}" class="admin-promote-btn py-1 px-3 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600">Promuj (1 klik)</button>
+                             <button data-id="${channel.id}" class="admin-delete-btn py-1 px-3 bg-red-500 text-white text-sm rounded hover:bg-red-600">Usuń</button>
+                         </td>
+                     `;
+                     adminChannelsTableBody.appendChild(row);
+                 });
+
+                 // Dodaj event listenery do nowych przycisków
+                 document.querySelectorAll('.admin-promote-btn').forEach(button => {
+                     button.addEventListener('click', handleAdminPromoteClick);
+                 });
+                 document.querySelectorAll('.admin-delete-btn').forEach(button => {
+                     button.addEventListener('click', handleAdminDeleteClick);
+                 });
+
+             } else if (channels) { // Jeśli channels jest puste, ale nie ma błędu
+                  adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Brak kanałów w bazie.</td></tr>';
+             } else {
+                 // Błąd został już obsłużony w sendAdminRequest
+                 adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 p-4">Nie udało się załadować danych.</td></tr>';
+             }
+        }
+
+        // Obsługa kliknięcia przycisku "Promuj (1 klik)" w panelu admina
+        async function handleAdminPromoteClick(event) {
+            const channelId = event.target.dataset.id;
+            console.log(`Admin: Promuj kanał ID: ${channelId}`);
+            const result = await sendAdminRequest(`/api/admin/channels/${channelId}/promote_one_click`, 'POST');
+            if (result) {
+                alert(`Kanał ID ${channelId} promowany pomyślnie.`);
+                fetchAdminChannels(); // Odśwież listę po promowaniu
+            }
+            // Błąd jest obsługiwany w sendAdminRequest
+        }
+
+        // Obsługa kliknięcia przycisku "Usuń" w panelu admina
+        async function handleAdminDeleteClick(event) {
+             const channelId = event.target.dataset.id;
+             console.log(`Admin: Usuń kanał ID: ${channelId}`);
+
+             if (confirm(`Czy na pewno chcesz usunąć kanał o ID ${channelId}?`)) {
+                 const result = await sendAdminRequest(`/api/admin/channels/${channelId}/delete`, 'DELETE');
+                 if (result) {
+                     alert(`Kanał ID ${channelId} usunięty pomyślnie.`);
+                     fetchAdminChannels(); // Odśwież listę po usunięciu
+                 }
+                 // Błąd jest obsługiwany w sendAdminRequest
+             }
+        }
+
+
+        // Obsługa formularza logowania
+        loginForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const password = adminPasswordInput.value;
+
+            // Prosta próba "zalogowania" poprzez próbę pobrania danych admina
+            // W prawdziwej aplikacji byłby tu osobny endpoint logowania zwracający token/sesję
+            adminPassword = password; // Tymczasowo zapisz hasło
+            loginError.classList.add('hidden'); // Ukryj poprzednie błędy
+
+            const channels = await sendAdminRequest('/api/admin/channels', 'GET');
+
+            if (channels) {
+                // Logowanie pomyślne, pokaż panel admina
+                showAdminPanel();
+                fetchAdminChannels(); // Pobierz i wyświetl dane
+            } else {
+                // Logowanie niepomyślne (sendAdminRequest zwrócił null z powodu błędu 401 lub innego)
+                adminPassword = null; // Wyczyść hasło
+                loginError.classList.remove('hidden'); // Pokaż komunikat o błędzie
+            }
+        });
+
+        // Funkcje do przełączania widoku logowania/panelu admina
+        function showLogin() {
+            loginSection.classList.remove('hidden');
+            adminPanel.classList.add('hidden');
+            adminPasswordInput.value = ''; // Wyczyść pole hasła
+             adminChannelsTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 p-4">Zaloguj się, aby zobaczyć dane.</td></tr>'; // Wyczyść tabelę
+        }
+
+         function showAdminPanel() {
+            loginSection.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+         }
+
+        // Obsługa przycisku odświeżania listy
+        refreshChannelsButton.addEventListener('click', fetchAdminChannels);
+
+
+        // Inicjalizacja: pokaż sekcję logowania przy ładowaniu strony
+        window.onload = showLogin;
+
+    </script>
+</body>
+</html>
