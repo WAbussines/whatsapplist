@@ -64,8 +64,8 @@
     </div>
 
     <script>
-        // Adres URL Twojego backendu
-        const BACKEND_URL = 'https://whatsapplista.onrender.com'; // Zmień na adres swojego serwera po wdrożeniu
+        // Adres URL Twojego backendu na Renderze
+        const BACKEND_URL = 'https://whatsapplista.onrender.com'; // ZMIEŃ TO NA SWÓJ ADRES RENDER!
 
         // Tablica przechowująca dane kanałów pobrane z backendu
         let channels = [];
@@ -74,6 +74,10 @@
         // Klucz: ID kanału, Wartość: bieżąca liczba kliknięć
         const channelClickCounts = new Map();
         const CLICKS_REQUIRED_FOR_PROMOTION = 10; // Liczba kliknięć wymagana do promowania
+
+        const channelLinkInput = document.getElementById('channelLink');
+        const channelNameInput = document.getElementById('channelName'); // Ponownie inicjalizujemy pole nazwy
+
 
         // Funkcja do ładowania kanałów z backendu
         async function fetchChannels() {
@@ -119,8 +123,7 @@
 
                 channelDiv.innerHTML = `
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900">${channel.name}</h3>
-                        <a href="${channel.link}" target="_blank" class="text-sm text-blue-600 hover:underline">${channel.link}</a>
+                        <h3 class="text-lg font-medium text-gray-900">${channel.name || 'Brak nazwy'}</h3> <a href="${channel.link}" target="_blank" class="text-sm text-blue-600 hover:underline">${channel.link}</a>
                     </div>
                     <button data-id="${channel.id}"
                             class="promote-btn py-1 px-3 bg-yellow-500 text-white text-sm rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
@@ -217,19 +220,24 @@
         document.getElementById('addChannelForm').addEventListener('submit', async function(event) {
             event.preventDefault(); // Zapobiegaj domyślnej wysyłce formularza
 
-            const channelNameInput = document.getElementById('channelName');
-            const channelLinkInput = document.getElementById('channelLink');
-
             const channelLink = channelLinkInput.value;
-            const channelName = channelNameInput.value;
+            const channelName = channelNameInput.value.trim(); // Pobierz nazwę z pola input
 
-            // Walidacja JavaScript
-            const whatsappLinkPattern = /^https:\/\/whatsapp\.com\/channel\/.*/;
-            if (!whatsappLinkPattern.test(channelLink)) {
-                alert('Proszę podać poprawny link do kanału WhatsApp, zaczynający się od https://whatsapp.com/channel/');
-                channelLinkInput.focus(); // Ustaw focus na pole linku
-                return; // Zatrzymaj dalsze przetwarzanie formularza
+            // Walidacja danych
+            if (!channelName) {
+                 alert('Proszę podać nazwę kanału.');
+                 channelNameInput.focus();
+                 return;
             }
+
+            // Walidacja linku
+            const whatsappLinkPattern = /^https:\/\/whatsapp\.com\/channel\/.*/;
+             if (!whatsappLinkPattern.test(channelLink)) {
+                 alert('Proszę podać poprawny link do kanału WhatsApp, zaczynający się od https://whatsapp.com/channel/');
+                 channelLinkInput.focus();
+                 return;
+             }
+
 
             // ** Wysyłanie danych do backendu **
             try {
@@ -254,8 +262,8 @@
                 await fetchChannels();
 
                 // Wyczyść formularz
-                channelNameInput.value = '';
                 channelLinkInput.value = '';
+                channelNameInput.value = '';
 
                 alert('Kanał dodany pomyślnie.');
 
@@ -264,6 +272,8 @@
                 alert(`Nie udało się dodać kanału: ${error.message}`);
             }
         });
+
+        // Usunięto całą logikę automatycznego pobierania nazwy z linku
 
 
         // Zainicjuj: załaduj kanały po załadowaniu strony
